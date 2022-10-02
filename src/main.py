@@ -90,11 +90,16 @@ class ExampleWindow(Gtk.ApplicationWindow):
         adw_action_row_1.add_suffix(widget=combobox_text_b)
         adw_expander_row_1.add_row(child=adw_action_row_1)
         
-        self.o_btn = Gtk.Button(label=openb)
+        self.entry = Adw.EntryRow()
+
+        self.o_btn = Gtk.Button.new_from_icon_name('folder-symbolic')
+        btnc_o = self.o_btn.get_style_context()
+        btnc_o.add_class('suggested-action')
         self.o_btn.connect('clicked', self.on_o_btn_clicked)
         adw_action_row_0 = Adw.ActionRow.new()
         adw_action_row_0.set_icon_name(icon_name='cd-symbolic')
         adw_action_row_0.set_title(title=path)
+        adw_action_row_0.add_suffix(widget=self.entry)
         adw_action_row_0.add_suffix(widget=self.o_btn)
         adw_expander_row_1.add_row(child=adw_action_row_0)
 
@@ -104,9 +109,6 @@ class ExampleWindow(Gtk.ApplicationWindow):
         self.toast_overlay.set_margin_bottom(margin=12)
         self.toast_overlay.set_margin_start(margin=12)
         self.mainBox.append(child=self.toast_overlay)
-        
-        self.entry = Gtk.Entry()
-        listbox.append(self.entry)
         
         self.button = Gtk.Button.new_with_label(label=apply)
         self.button_style_context = self.button.get_style_context()
