@@ -4,6 +4,9 @@ import gi
 import os
 import json
 from datetime import date
+import sys
+sys.path.append("/home/liveuser/save-desktop-configuration")
+from translations.en import *
 gi.require_version(namespace='Gtk', version='4.0')
 gi.require_version(namespace='Adw', version='1')
 
@@ -102,8 +105,8 @@ class ExampleWindow(Gtk.ApplicationWindow):
         self.toast_overlay.set_margin_start(margin=12)
         self.mainBox.append(child=self.toast_overlay)
         
-        self.label = Gtk.Label()
-        listbox.append(self.label)
+        self.entry = Gtk.Entry()
+        listbox.append(self.entry)
         
         self.button = Gtk.Button.new_with_label(label=apply)
         self.button_style_context = self.button.get_style_context()
@@ -132,7 +135,7 @@ class ExampleWindow(Gtk.ApplicationWindow):
             file = dialog.get_file()
             filename = file.get_path()
             print(filename)
-            self.label.set_label(filename)
+            self.entry.set_text(filename)
 
     def on_combo_box_text_changed(self, comboboxtext):
         with open(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.desktop-config-saver/data/values.json', 'w') as s:
