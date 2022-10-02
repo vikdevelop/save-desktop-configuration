@@ -5,7 +5,7 @@ import os
 import json
 from datetime import date
 import sys
-sys.path.append("/home/liveuser/save-desktop-configuration")
+sys.path.append("/app")
 from translations.en import *
 gi.require_version(namespace='Gtk', version='4.0')
 gi.require_version(namespace='Adw', version='1')
