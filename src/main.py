@@ -4,6 +4,7 @@ import gi
 import os
 import json
 from datetime import date
+from pathlib import Path
 import sys
 sys.path.append("/app")
 from translations.en import *
@@ -16,7 +17,62 @@ from gi.repository import Adw, Gio, Gtk, Gdk, GLib, GObject
 
 Adw.init()
 
-class ExampleWindow(Gtk.ApplicationWindow):
+class DialogSelecFolder(Gtk.FileChooserDialog):
+    home = Path.home()
+
+    def __init__(self, parent, select_multiple):
+        super().__init__(transient_for=parent, use_header_bar=True)
+        self.select_multiple = select_multiple
+
+        self.set_action(action=Gtk.FileChooserAction.OPEN)
+        title = 'Choose some archives' if self.select_multiple else 'Choose an archive'
+        self.set_title(title=title)
+        self.set_modal(modal=True)
+        self.set_select_multiple(select_multiple=self.select_multiple)
+        self.connect('response', self.dialog_response)
+        self.set_current_folder(
+            Gio.File.new_for_path(path=str(self.home)),
+        )
+
+        self.add_buttons(
+            '_Cancel', Gtk.ResponseType.CANCEL,
+            '_Select', Gtk.ResponseType.OK
+        )
+        btn_select = self.get_widget_for_response(
+            response_id=Gtk.ResponseType.OK,
+        )
+        # Adicionando estilo no botão.
+        btn_select.get_style_context().add_class(class_name='suggested-action')
+        btn_cancel = self.get_widget_for_response(
+            response_id=Gtk.ResponseType.CANCEL,
+        )
+        btn_cancel.get_style_context().add_class(class_name='destructive-action')
+
+        txt_filter = Gtk.FileFilter()
+        txt_filter.set_name(name='Tar Gzip archive')
+        txt_filter.add_pattern(pattern='*.tar.gz')
+        txt_filter.add_mime_type(mime_type='archive')
+        self.add_filter(filter=txt_filter)
+
+        self.show()
+
+    def dialog_response(self, widget, response):
+        # Verificando qual botão foi pressionado.
+        if response == Gtk.ResponseType.OK:
+            if self.select_multiple:
+                gliststore = self.get_files()
+                for glocalfile in gliststore:
+                    print(f' {glocalfile.get_path()}\n')
+            else:
+                glocalfile = self.get_file()
+                print(f' {glocalfile.get_path()}')
+                with open(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.save-desktop-configuration/data/file.json', 'w') as f:
+                    f.write('{\n')
+                    f.write(f' "file-path": " { glocalfile.get_path() } "')
+                    f.write('\n}')
+        widget.close()
+
+class DesktopWindow(Gtk.ApplicationWindow):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -118,33 +174,29 @@ class ExampleWindow(Gtk.ApplicationWindow):
         self.button.set_vexpand(expand=True)
         self.button.connect('clicked', self.on_button_clicked)
         self.toast_overlay.set_child(child=self.button)
+        
+        self.check_button = Gtk.CheckButton.new_with_label(label='....')
 
         self.toast = Adw.Toast.new(title='')
         self.toast.connect('dismissed', self.on_toast_dismissed)
         
     def on_o_btn_clicked(self, obtn):
-        self.open_dialog = Gtk.FileChooserNative.new(title=choose_file,
-        parent=self, action=Gtk.FileChooserAction.OPEN)
-
-        self.open_dialog.connect("response", self.open_response)
-        self.o_btn.connect("clicked", self.show_open_dialog)
-
-    def show_open_dialog(self, button):
-        self.open_dialog.show()
-
-    def open_response(self, dialog, response):
-        if response == Gtk.ResponseType.ACCEPT:
-            file = dialog.get_file()
-            filename = file.get_path()
-            print(filename)
-            self.entry.set_text(filename)
+        select_multiple = self.check_button.get_active()
+        DialogSelecFolder(parent=self, select_multiple=select_multiple)
+        self.file()
+    
+    def file(self):
+        with open(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.save-desktop-configuration/data/file.json') as f:
+            jF = json.load(f)
+        file = jF["file-path"]
+        self.entry.set_text(file)
 
     def on_combo_box_text_changed(self, comboboxtext):
-        with open(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.desktop-config-saver/data/values.json', 'w') as s:
+        with open(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.save-desktop-configuration/data/values.json', 'w') as s:
             s.write('{\n "de": "%s"\n}' % comboboxtext.get_active_text())
 
     def on_combo_box_text_b_changed(self, comboboxtextb):
-        with open(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.desktop-config-saver/data/values.json', 'w') as s:
+        with open(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.save-desktop-configuration/data/values.json', 'w') as s:
             s.write('{\n "de": "%s-apply"\n}' % comboboxtextb.get_active_text())
 
     def on_button_clicked(self, button):
@@ -153,37 +205,37 @@ class ExampleWindow(Gtk.ApplicationWindow):
         self.toast_overlay.add_toast(self.toast)
 
     def save(self):
-        with open(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.desktop-config-saver/data/values.json') as s:
+        with open(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.save-desktop-configuration/data/values.json') as s:
             jS = json.load(s)
         de = jS["de"]
         # GNOME - Save Config
         if de == "GNOME":
             if not os.path.exists(os.path.expanduser('~') + '/DesktopSavers'):
                 os.mkdir(os.path.expanduser('~') + '/DesktopSavers')
-            if not os.path.exists(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.desktop-config-saver/data/GNOME'):
-                os.makedirs(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.desktop-config-saver/data/GNOME')
-            os.chdir(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.desktop-config-saver/data')
+            if not os.path.exists(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.save-desktop-configuration/data/GNOME'):
+                os.makedirs(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.save-desktop-configuration/data/GNOME')
+            os.chdir(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.save-desktop-configuration/data')
             os.system('cp ~/.config/dconf/user ./GNOME && tar --gzip -cf %s.tar.gz ./GNOME && mkdir -p ~/DesktopSavers/%s && cp %s.tar.gz $HOME/DesktopSavers/%s/' % (today, today, today, today))
         # GNOME - Apply config
         elif de == "GNOME-apply":
             entry = self.entry.get_text()
-            os.system('cp %s ' % entry + os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.desktop-config-saver/cache/tmp/ && cd ~/.var/app/com.github.vikdevelop.desktop-config-saver/cache/tmp/ && tar -xf *.tar.gz')
+            os.system('cp %s ' % entry + os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.save-desktop-configuration/cache/tmp/ && cd ~/.var/app/com.github.vikdevelop.save-desktop-configuration/cache/tmp/ && tar -xf *.tar.gz')
             if os.path.exists(os.path.expanduser('~')+ '/.config/dconf'):
                 os.system('rm -rf ~/.config/dconf')
-            os.system('cd ~/.var/app/com.github.vikdevelop.desktop-config-saver/cache/tmp/ && mkdir -p ~/.config/dconf && cp ./GNOME/user ~/.config/dconf/')
-            os.system('rm ~/.var/app/com.github.vikdevelop.desktop-config-saver/cache/tmp/GNOME')
+            os.system('cd ~/.var/app/com.github.vikdevelop.save-desktop-configuration/cache/tmp/ && mkdir -p ~/.config/dconf && cp ./GNOME/user ~/.config/dconf/')
+            os.system('rm ~/.var/app/com.github.vikdevelop.save-desktop-configuration/cache/tmp/GNOME')
         # KDE Plasma -Apply config
         elif de == "KDE Plasma-apply":
             entry = self.entry.get_text()
-            os.system('cp %s ' % entry + os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.desktop-config-saver/cache/tmp/ && cd ~/.var/app/com.github.vikdevelop.desktop-config-saver/cache/tmp/ && tar -xf *.tar.gz && cp -r -f ./KDE_Plasma/* ~/.config/')
-            os.system('rm ~/.var/app/com.github.vikdevelop.desktop-config-saver/cache/tmp/KDE_Plasma')
+            os.system('cp %s ' % entry + os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.save-desktop-configuration/cache/tmp/ && cd ~/.var/app/com.github.vikdevelop.save-desktop-configuration/cache/tmp/ && tar -xf *.tar.gz && cp -r -f ./KDE_Plasma/* ~/.config/')
+            os.system('rm ~/.var/app/com.github.vikdevelop.save-desktop-configuration/cache/tmp/KDE_Plasma')
         # KDE Plasma - Save config
         elif de == "KDE Plasma":
             if not os.path.exists(os.path.expanduser('~') + '/DesktopSavers'):
                 os.mkdir(os.path.expanduser('~') + '/DesktopSavers')
-            if not os.path.exists(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.desktop-config-saver/data/KDE_Plasma'):
-                os.makedirs(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.desktop-config-saver/data/KDE_Plasma')
-            os.chdir(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.desktop-config-saver/data')
+            if not os.path.exists(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.save-desktop-configuration/data/KDE_Plasma'):
+                os.makedirs(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.save-desktop-configuration/data/KDE_Plasma')
+            os.chdir(os.path.expanduser('~') + '/.var/app/com.github.vikdevelop.save-desktop-configuration/data')
             os.system('cp ~/.config/kdeglobals ./KDE_Plasma/ && ~/.config/kscreenlockerrc ./KDE_Plasma/ && cp ~/.config/kwinrc ./KDE_Plasma/ && cp ~/.config/gtkrc ./KDE_Plasma/ && cp ~/.config/gtkrc-2.0 ./KDE_Plasma/ && cp -R ~/.config/gtk-4.0 ./KDE_Plasma/ && cp -R ~/.config/gtk-3.0 ./KDE_Plasma/ && cp ~/.config/ksplashrc ./KDE_Plasma/ && cp ~/.config/plasmarc ./KDE_Plasma/ && cp ~/.config/breezerc ./KDE_Plasma/ && cp ~/.config/kwinrc ./KDE_Plasma/ && cp ~/.config/kcmfonts ./KDE_Plasma/ && cp ~/.config/kfontinstuirc ./KDE_Plasma/ && cp ~/.config/ksplashrc ./KDE_Plasma/ && cp ~/.config/kglobalshortcutsrc ./KDE_Plasma/')
             os.system('tar --gzip -cf %s.tar.gz ./KDE_Plasma/ && mkdir -p ~/DesktopSavers/%s && cp %s.tar.gz $HOME/DesktopSavers/%s/' % (today, today, today, today))
         # Adw.Toast()
@@ -195,7 +247,6 @@ class ExampleWindow(Gtk.ApplicationWindow):
         self.button.set_sensitive(sensitive=True)
 
 class ExampleApplication(Adw.Application):
-
     def __init__(self):
         super().__init__(application_id='com.github.vikdevelop.save_desktop_configuration',
                          flags=Gio.ApplicationFlags.FLAGS_NONE)
@@ -206,7 +257,7 @@ class ExampleApplication(Adw.Application):
     def do_activate(self):
         win = self.props.active_window
         if not win:
-            win = ExampleWindow(application=self)
+            win = DesktopWindow(application=self)
         win.present()
 
     def do_startup(self):
